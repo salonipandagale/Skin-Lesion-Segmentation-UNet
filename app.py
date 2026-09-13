@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 import io
@@ -34,7 +33,9 @@ tf.get_logger().setLevel("ERROR")
 st.markdown(
     """
     <style>
+
     /* ---------- Global ---------- */
+
     .stApp {
         background: #f4f8fa;
     }
@@ -45,8 +46,12 @@ st.markdown(
         padding-bottom: 3rem;
     }
 
+
     /* ---------- Typography ---------- */
-    html, body, [class*="css"] {
+
+    html,
+    body,
+    [class*="css"] {
         font-family: "Segoe UI", Arial, sans-serif;
     }
 
@@ -56,15 +61,19 @@ st.markdown(
         letter-spacing: -0.5px;
     }
 
-    h2, h3 {
+    h2,
+    h3 {
         color: #0a5263 !important;
     }
 
-    p, li {
+    p,
+    li {
         color: #506772;
     }
 
+
     /* ---------- Sidebar ---------- */
+
     [data-testid="stSidebar"] {
         background: #eaf2f5;
         border-right: 1px solid #d2e0e5;
@@ -75,7 +84,9 @@ st.markdown(
         color: #083f50 !important;
     }
 
+
     /* ---------- Metric cards ---------- */
+
     [data-testid="stMetric"] {
         background: #ffffff;
         border: 1px solid #d8e4e8;
@@ -98,7 +109,9 @@ st.markdown(
         font-weight: 750 !important;
     }
 
+
     /* ---------- Upload area ---------- */
+
     [data-testid="stFileUploader"] {
         background: #ffffff;
         border: 1px dashed #8bb9c2;
@@ -106,7 +119,9 @@ st.markdown(
         padding: 0.75rem;
     }
 
+
     /* ---------- Buttons ---------- */
+
     .stButton > button,
     .stDownloadButton > button {
         background: #075f70;
@@ -123,24 +138,32 @@ st.markdown(
         color: white;
     }
 
+
     /* ---------- Images ---------- */
+
     [data-testid="stImage"] {
         border-radius: 10px;
     }
 
+
     /* ---------- Expanders ---------- */
+
     [data-testid="stExpander"] {
         border: 1px solid #d8e4e8;
         border-radius: 12px;
         background: #ffffff;
     }
 
+
     /* ---------- Horizontal rule ---------- */
+
     hr {
         border-color: #d5e2e6 !important;
     }
 
+
     /* ---------- Footer ---------- */
+
     .footer-text {
         color: #71838c;
         font-size: 0.78rem;
@@ -148,7 +171,9 @@ st.markdown(
         padding-top: 1.25rem;
     }
 
+
     /* ---------- Download button ---------- */
+
     .stDownloadButton > button {
         background-color: #056B78 !important;
         color: #FFFFFF !important;
@@ -173,6 +198,7 @@ st.markdown(
     .stDownloadButton > button:hover span {
         color: #FFFFFF !important;
     }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -194,6 +220,26 @@ MODEL_PATH = (
 INPUT_SIZE = (256, 256)
 
 THRESHOLD = 0.50
+
+
+# ============================================================
+# SESSION STATE INITIALIZATION
+# ============================================================
+
+# We persist the uploaded image bytes because Streamlit reruns
+# the complete script whenever widget state changes.
+#
+# This prevents the uploaded image from disappearing between
+# reruns and makes the application more robust on Render.
+
+if "uploaded_image_bytes" not in st.session_state:
+    st.session_state.uploaded_image_bytes = None
+
+if "uploaded_image_name" not in st.session_state:
+    st.session_state.uploaded_image_name = None
+
+if "analysis_requested" not in st.session_state:
+    st.session_state.analysis_requested = False
 
 
 # ============================================================
@@ -253,7 +299,34 @@ def load_segmentation_model():
     if not MODEL_PATH.exists():
 
         raise FileNotFoundError(
-            f"Model file not found: {MODEL_PATH}"
+            f"Model file not found at:\n{MODEL_PATH}\n\n"
+            "Make sure the model is present in "
+            "models/unet_skin_lesion_best.keras "
+            "and has been correctly downloaded from Git LFS."
+        )
+
+    # Check that the path is actually a file.
+    if not MODEL_PATH.is_file():
+
+        raise FileNotFoundError(
+            f"Model path exists but is not a file:\n{MODEL_PATH}"
+        )
+
+    # Check for the common Git LFS pointer problem.
+    #
+    # A Git LFS pointer is usually only a few hundred bytes.
+    # The actual model should be hundreds of MB.
+    file_size_mb = MODEL_PATH.stat().st_size / (1024 * 1024)
+
+    if file_size_mb < 1:
+
+        raise RuntimeError(
+            "The model file appears to be a Git LFS pointer "
+            "instead of the actual .keras model.\n\n"
+            f"Model path: {MODEL_PATH}\n"
+            f"Detected size: {file_size_mb:.4f} MB\n\n"
+            "Verify that the Git LFS object was uploaded "
+            "and is available to the deployment."
         )
 
     model = keras.models.load_model(
@@ -285,8 +358,7 @@ def preprocess_image(image: Image.Image):
             256 × 256 float32 image in [0, 1].
 
         model_input:
-            Tensor-like NumPy array with shape
-            (1, 256, 256, 3).
+            NumPy array with shape (1, 256, 256, 3).
     """
 
     image = image.convert("RGB")
@@ -334,6 +406,45 @@ def predict_segmentation(
         model_input,
         verbose=0,
     )
+
+    # --------------------------------------------------------
+    # Validate model output.
+    # --------------------------------------------------------
+
+    if prediction is None:
+
+        raise RuntimeError(
+            "The model returned no prediction."
+        )
+
+    prediction = np.asarray(
+        prediction
+    )
+
+    if prediction.ndim != 4:
+
+        raise RuntimeError(
+            "Unexpected model output shape: "
+            f"{prediction.shape}. "
+            "Expected shape similar to "
+            "(1, 256, 256, 1)."
+        )
+
+    if prediction.shape[0] != 1:
+
+        raise RuntimeError(
+            "Unexpected batch dimension in model output: "
+            f"{prediction.shape}"
+        )
+
+    if prediction.shape[-1] != 1:
+
+        raise RuntimeError(
+            "Unexpected number of output channels: "
+            f"{prediction.shape[-1]}. "
+            "The segmentation model should output one "
+            "binary lesion channel."
+        )
 
     probability = prediction[
         0, :, :, 0
@@ -431,8 +542,8 @@ def calculate_statistics(
     """
     Calculate lesion area and mean lesion confidence.
 
-    Both probability and binary_mask are expected
-    to correspond to the model's 256 × 256 output.
+    Both probability and binary_mask should correspond
+    to the model's 256 × 256 output.
     """
 
     probability = np.asarray(
@@ -444,7 +555,6 @@ def calculate_statistics(
         binary_mask
     )
 
-    # Remove unnecessary dimensions if present.
     probability = np.squeeze(
         probability
     )
@@ -452,10 +562,6 @@ def calculate_statistics(
     binary_mask = np.squeeze(
         binary_mask
     )
-
-    # --------------------------------------------------------
-    # Ensure probability is in [0, 1]
-    # --------------------------------------------------------
 
     if probability.size == 0:
 
@@ -473,9 +579,9 @@ def calculate_statistics(
         1.0,
     )
 
-    # --------------------------------------------------------
-    # Convert mask to boolean
-    # --------------------------------------------------------
+    if binary_mask.size == 0:
+
+        return 0.0, 0.0
 
     if binary_mask.max() <= 1:
 
@@ -488,11 +594,6 @@ def calculate_statistics(
         binary_mask_bool = (
             binary_mask > 0
         )
-
-    # --------------------------------------------------------
-    # Make sure mask and probability have
-    # matching dimensions.
-    # --------------------------------------------------------
 
     if (
         binary_mask_bool.shape
@@ -521,19 +622,11 @@ def calculate_statistics(
             > 127
         )
 
-    # --------------------------------------------------------
-    # Estimated lesion area
-    # --------------------------------------------------------
-
     lesion_area = (
         np.sum(binary_mask_bool)
         / binary_mask_bool.size
         * 100.0
     )
-
-    # --------------------------------------------------------
-    # Mean confidence over predicted lesion pixels
-    # --------------------------------------------------------
 
     if np.any(binary_mask_bool):
 
@@ -751,6 +844,7 @@ st.write(
     "and visual overlay."
 )
 
+
 uploaded_file = st.file_uploader(
     "Upload dermoscopic image",
     type=[
@@ -758,6 +852,7 @@ uploaded_file = st.file_uploader(
         "jpeg",
         "png",
     ],
+    key="lesion_image_uploader",
     help=(
         "Supported formats: JPG, JPEG and PNG. "
         "The model processes the image at "
@@ -767,10 +862,63 @@ uploaded_file = st.file_uploader(
 
 
 # ============================================================
+# STORE UPLOADED IMAGE
+# ============================================================
+
+# If a new file has just been uploaded,
+# immediately copy its bytes into session state.
+
+if uploaded_file is not None:
+
+    try:
+
+        current_bytes = uploaded_file.getvalue()
+
+        if current_bytes:
+
+            st.session_state.uploaded_image_bytes = (
+                current_bytes
+            )
+
+            st.session_state.uploaded_image_name = (
+                uploaded_file.name
+            )
+
+            # New upload means the user has a new
+            # image that should be analyzed.
+            st.session_state.analysis_requested = True
+
+    except Exception as exc:
+
+        st.error(
+            "The uploaded file could not be read."
+        )
+
+        with st.expander(
+            "Technical error details"
+        ):
+
+            st.exception(exc)
+
+
+# ============================================================
+# DETERMINE WHETHER AN IMAGE EXISTS
+# ============================================================
+
+has_uploaded_image = (
+    st.session_state.uploaded_image_bytes
+    is not None
+    and len(
+        st.session_state.uploaded_image_bytes
+    ) > 0
+)
+
+
+# ============================================================
 # READY STATE
 # ============================================================
 
-if uploaded_file is None:
+if not has_uploaded_image:
 
     st.info(
         "Ready for analysis. Upload a "
@@ -785,335 +933,382 @@ if uploaded_file is None:
 
 else:
 
-    try:
+    # --------------------------------------------------------
+    # Show uploaded image information.
+    # --------------------------------------------------------
 
-        # ----------------------------------------------------
-        # Load model
-        # ----------------------------------------------------
+    st.success(
+        f"Image uploaded successfully: "
+        f"{st.session_state.uploaded_image_name}"
+    )
 
-        with st.spinner(
-            "Loading the segmentation model..."
-        ):
-
-            model = load_segmentation_model()
-
-
-        # ----------------------------------------------------
-        # Read uploaded image
-        # ----------------------------------------------------
-
-        image = Image.open(
-            uploaded_file
-        )
-
-        (
-            original_image,
-            resized_image,
-            model_input,
-        ) = preprocess_image(
-            image
-        )
+    st.caption(
+        "The image has been received by the application "
+        "and is ready for segmentation."
+    )
 
 
-        # ----------------------------------------------------
-        # Run inference
-        # ----------------------------------------------------
+    # --------------------------------------------------------
+    # Analyze button.
+    #
+    # This makes the inference step explicit and prevents
+    # accidental repeated model inference during Streamlit
+    # widget reruns.
+    # --------------------------------------------------------
 
-        with st.spinner(
-            "Analyzing the lesion region..."
-        ):
+    analyze_button = st.button(
+        "Analyze Image",
+        type="primary",
+        use_container_width=False,
+    )
 
-            (
-                probability,
-                prediction_mask,
-            ) = predict_segmentation(
-                model,
-                model_input,
+
+    if analyze_button:
+
+        st.session_state.analysis_requested = True
+
+
+    # --------------------------------------------------------
+    # Only run inference after an image exists.
+    # --------------------------------------------------------
+
+    if st.session_state.analysis_requested:
+
+        try:
+
+            # =================================================
+            # LOAD MODEL
+            # =================================================
+
+            with st.spinner(
+                "Loading the segmentation model..."
+            ):
+
+                model = load_segmentation_model()
+
+
+            # =================================================
+            # READ IMAGE FROM SESSION STATE
+            # =================================================
+
+            image_bytes = (
+                st.session_state.uploaded_image_bytes
             )
 
+            if image_bytes is None:
 
-        # ----------------------------------------------------
-        # Resize predicted mask to original image
-        # ----------------------------------------------------
-
-        original_mask = (
-            resize_mask_to_original(
-                prediction_mask,
-                image.size,
-            )
-        )
-
-
-        # ----------------------------------------------------
-        # Create overlay
-        # ----------------------------------------------------
-
-        overlay = create_overlay(
-            original_image,
-            original_mask,
-        )
-
-
-        # ----------------------------------------------------
-        # Calculate statistics
-        # ----------------------------------------------------
-        # IMPORTANT:
-        # The function expects:
-        # calculate_statistics(probability, mask)
-        #
-        # Both are 256 × 256 here, so the statistics
-        # correspond directly to the model output.
-        # ----------------------------------------------------
-
-        (
-            lesion_percentage,
-            mean_confidence,
-        ) = calculate_statistics(
-            probability,
-            prediction_mask,
-        )
-
-
-        st.success(
-            "Segmentation completed successfully. "
-            "The U-Net generated a binary lesion mask."
-        )
-
-
-        # ====================================================
-        # RESULTS
-        # ====================================================
-
-        st.subheader(
-            "Segmentation Results"
-        )
-
-        result_col1, result_col2, result_col3 = (
-            st.columns(
-                3,
-                gap="large",
-            )
-        )
-
-
-        with result_col1:
-
-            st.markdown(
-                "**Input Image**"
-            )
-
-            st.image(
-                original_image,
-                use_container_width=True,
-            )
-
-
-        with result_col2:
-
-            st.markdown(
-                "**Predicted Lesion Mask**"
-            )
-
-            st.image(
-                original_mask.astype(
-                    np.uint8
-                ) * 255,
-                use_container_width=True,
-            )
-
-
-        with result_col3:
-
-            st.markdown(
-                "**Segmentation Overlay**"
-            )
-
-            st.image(
-                overlay,
-                use_container_width=True,
-            )
-
-
-        # ====================================================
-        # ANALYSIS SUMMARY
-        # ====================================================
-
-        st.subheader(
-            "Analysis Summary"
-        )
-
-        (
-            metric_col1,
-            metric_col2,
-            metric_col3,
-            metric_col4,
-        ) = st.columns(4)
-
-
-        with metric_col1:
-
-            st.metric(
-                "Estimated lesion area",
-                f"{lesion_percentage:.2f}%",
-            )
-
-
-        with metric_col2:
-
-            # IMPORTANT:
-            # mean_confidence is already in percentage.
-            # Do NOT multiply by 100 again.
-            st.metric(
-                "Mean lesion confidence",
-                f"{mean_confidence:.1f}%",
-            )
-
-
-        with metric_col3:
-
-            st.metric(
-                "Segmentation threshold",
-                f"{THRESHOLD:.2f}",
-            )
-
-
-        with metric_col4:
-
-            st.metric(
-                "Model output",
-                "Binary mask",
-            )
-
-
-        st.caption(
-            "Estimated lesion area is the percentage "
-            "of 256 × 256 model-input pixels classified "
-            "as lesion. Mean lesion confidence is the "
-            "average predicted lesion probability over "
-            "pixels classified as lesion."
-        )
-
-
-        # ====================================================
-        # PROBABILITY MAP
-        # ====================================================
-
-        with st.expander(
-            "View model probability map"
-        ):
-
-            st.write(
-                "Each pixel represents the model's "
-                "estimated probability of belonging "
-                "to the lesion region. Higher values "
-                "indicate stronger model confidence."
-            )
-
-            st.image(
-                probability,
-                clamp=True,
-                channels="L",
-                caption=(
-                    "Lesion probability map"
-                ),
-                use_container_width=True,
-            )
-
-
-        # ====================================================
-        # EXPORT
-        # ====================================================
-
-        st.subheader(
-            "Export"
-        )
-
-        mask_image = Image.fromarray(
-            (
-                original_mask.astype(
-                    np.uint8
+                raise RuntimeError(
+                    "The uploaded image data is no longer "
+                    "available in the current session."
                 )
-                * 255
-            )
-        )
-
-        buffer = io.BytesIO()
-
-        mask_image.save(
-            buffer,
-            format="PNG",
-        )
-
-        st.download_button(
-            label=(
-                "Download segmentation mask"
-            ),
-            data=buffer.getvalue(),
-            file_name=(
-                "skin_lesion_segmentation_mask.png"
-            ),
-            mime="image/png",
-        )
 
 
-        # ====================================================
-        # TECHNICAL DETAILS
-        # ====================================================
-
-        with st.expander(
-            "Technical details"
-        ):
-
-            st.write(
-                f"Original image size: "
-                f"{image.size[0]} × "
-                f"{image.size[1]}"
+            image = Image.open(
+                io.BytesIO(image_bytes)
             )
 
-            st.write(
-                "Model input size: "
-                "256 × 256 × 3"
-            )
+            image.load()
 
-            st.write(
-                "Output type: "
-                "Binary lesion mask"
-            )
-
-            st.write(
-                f"Decision threshold: "
-                f"{THRESHOLD:.2f}"
-            )
-
-            st.write(
-                "Model: Custom U-Net"
-            )
-
-            st.write(
-                "Dataset: ISIC 2016 Task 1"
+            (
+                original_image,
+                resized_image,
+                model_input,
+            ) = preprocess_image(
+                image
             )
 
 
-    except Exception as exc:
+            # =================================================
+            # RUN INFERENCE
+            # =================================================
 
-        st.error(
-            "The image could not be processed."
-        )
+            with st.spinner(
+                "Analyzing the lesion region..."
+            ):
 
-        st.warning(
-            "If this happens immediately after "
-            "deployment, first verify that the "
-            "model file exists at "
-            "models/unet_skin_lesion_best.keras "
-            "and that the application is running "
-            "from the project's virtual environment."
-        )
+                (
+                    probability,
+                    prediction_mask,
+                ) = predict_segmentation(
+                    model,
+                    model_input,
+                )
 
-        with st.expander(
-            "Technical error details"
-        ):
 
-            st.exception(exc)
+            # =================================================
+            # RESIZE MASK
+            # =================================================
+
+            original_mask = (
+                resize_mask_to_original(
+                    prediction_mask,
+                    image.size,
+                )
+            )
+
+
+            # =================================================
+            # CREATE OVERLAY
+            # =================================================
+
+            overlay = create_overlay(
+                original_image,
+                original_mask,
+            )
+
+
+            # =================================================
+            # CALCULATE STATISTICS
+            # =================================================
+
+            (
+                lesion_percentage,
+                mean_confidence,
+            ) = calculate_statistics(
+                probability,
+                prediction_mask,
+            )
+
+
+            # =================================================
+            # SUCCESS MESSAGE
+            # =================================================
+
+            st.success(
+                "Segmentation completed successfully. "
+                "The U-Net generated a binary lesion mask."
+            )
+
+
+            # =================================================
+            # RESULTS
+            # =================================================
+
+            st.subheader(
+                "Segmentation Results"
+            )
+
+            result_col1, result_col2, result_col3 = (
+                st.columns(
+                    3,
+                    gap="large",
+                )
+            )
+
+
+            with result_col1:
+
+                st.markdown(
+                    "**Input Image**"
+                )
+
+                st.image(
+                    original_image,
+                    use_container_width=True,
+                )
+
+
+            with result_col2:
+
+                st.markdown(
+                    "**Predicted Lesion Mask**"
+                )
+
+                st.image(
+                    original_mask.astype(
+                        np.uint8
+                    ) * 255,
+                    use_container_width=True,
+                )
+
+
+            with result_col3:
+
+                st.markdown(
+                    "**Segmentation Overlay**"
+                )
+
+                st.image(
+                    overlay,
+                    use_container_width=True,
+                )
+
+
+            # =================================================
+            # ANALYSIS SUMMARY
+            # =================================================
+
+            st.subheader(
+                "Analysis Summary"
+            )
+
+            (
+                metric_col1,
+                metric_col2,
+                metric_col3,
+                metric_col4,
+            ) = st.columns(4)
+
+
+            with metric_col1:
+
+                st.metric(
+                    "Estimated lesion area",
+                    f"{lesion_percentage:.2f}%",
+                )
+
+
+            with metric_col2:
+
+                st.metric(
+                    "Mean lesion confidence",
+                    f"{mean_confidence:.1f}%",
+                )
+
+
+            with metric_col3:
+
+                st.metric(
+                    "Segmentation threshold",
+                    f"{THRESHOLD:.2f}",
+                )
+
+
+            with metric_col4:
+
+                st.metric(
+                    "Model output",
+                    "Binary mask",
+                )
+
+
+            st.caption(
+                "Estimated lesion area is the percentage "
+                "of 256 × 256 model-input pixels classified "
+                "as lesion. Mean lesion confidence is the "
+                "average predicted lesion probability over "
+                "pixels classified as lesion."
+            )
+
+
+            # =================================================
+            # PROBABILITY MAP
+            # =================================================
+
+            with st.expander(
+                "View model probability map"
+            ):
+
+                st.write(
+                    "Each pixel represents the model's "
+                    "estimated probability of belonging "
+                    "to the lesion region. Higher values "
+                    "indicate stronger model confidence."
+                )
+
+                st.image(
+                    probability,
+                    clamp=True,
+                    channels="L",
+                    caption=(
+                        "Lesion probability map"
+                    ),
+                    use_container_width=True,
+                )
+
+
+            # =================================================
+            # EXPORT
+            # =================================================
+
+            st.subheader(
+                "Export"
+            )
+
+            mask_image = Image.fromarray(
+                (
+                    original_mask.astype(
+                        np.uint8
+                    )
+                    * 255
+                )
+            )
+
+            buffer = io.BytesIO()
+
+            mask_image.save(
+                buffer,
+                format="PNG",
+            )
+
+            st.download_button(
+                label=(
+                    "Download segmentation mask"
+                ),
+                data=buffer.getvalue(),
+                file_name=(
+                    "skin_lesion_segmentation_mask.png"
+                ),
+                mime="image/png",
+            )
+
+
+            # =================================================
+            # TECHNICAL DETAILS
+            # =================================================
+
+            with st.expander(
+                "Technical details"
+            ):
+
+                st.write(
+                    f"Original image size: "
+                    f"{image.size[0]} × "
+                    f"{image.size[1]}"
+                )
+
+                st.write(
+                    "Model input size: "
+                    "256 × 256 × 3"
+                )
+
+                st.write(
+                    "Output type: "
+                    "Binary lesion mask"
+                )
+
+                st.write(
+                    f"Decision threshold: "
+                    f"{THRESHOLD:.2f}"
+                )
+
+                st.write(
+                    "Model: Custom U-Net"
+                )
+
+                st.write(
+                    "Dataset: ISIC 2016 Task 1"
+                )
+
+
+        except Exception as exc:
+
+            st.error(
+                "The image could not be processed."
+            )
+
+            st.warning(
+                "The application received the image, "
+                "but an error occurred during model loading "
+                "or inference."
+            )
+
+            with st.expander(
+                "Technical error details",
+                expanded=True,
+            ):
+
+                st.exception(exc)
 
 
 # ============================================================
@@ -1149,4 +1344,3 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
-
