@@ -4,6 +4,10 @@ A deep learning based medical image segmentation project for **pixel-level skin 
 
 The project implements an end-to-end segmentation workflow covering data exploration, preprocessing, U-Net development, custom loss functions, model training, quantitative evaluation, qualitative visualization, and failure-case analysis.
 
+----
+## Live link :
+https://skin-lesion-segmentation-unet.onrender.com
+
 ---
 
 ## Project Overview
