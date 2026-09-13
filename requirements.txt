@@ -1,8 +1,9 @@
-tensorflow==2.13.0
-numpy==1.24.3
 opencv-python
 matplotlib
 scikit-learn
-pillow
 jupyter
-streamlit
+streamlit==1.63.0
+tensorflow==2.16.1
+keras==3.12.4
+numpy==1.24.3
+Pillow==12.3.0
