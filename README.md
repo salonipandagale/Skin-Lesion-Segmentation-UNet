@@ -5,11 +5,6 @@ A deep learning based medical image segmentation project for **pixel-level skin 
 The project implements an end-to-end segmentation workflow covering data exploration, preprocessing, U-Net development, custom loss functions, model training, quantitative evaluation, qualitative visualization, and failure-case analysis.
 
 ----
-## Live link :
-https://skin-lesion-segmentation-unet.onrender.com
-
----
-
 ## Project Overview
 
 Skin lesion segmentation is an important computer vision task in medical image analysis. Accurately separating a lesion from surrounding skin can provide a structured region of interest for downstream lesion analysis and computer-aided diagnostic systems.
@@ -639,7 +634,7 @@ Potential improvements include:
 ```text
 Skin-Lesion-Segmentation/
 │
-├── data/
+├── data/     --(not uploaded in repository)
 │   ├── images/
 │   ├── masks/
 │   ├── X_train.npy
@@ -791,14 +786,28 @@ Activate the environment on Windows:
 .venv\Scripts\activate
 ```
 
-Install the required dependencies:
+
+## Run the App Locally
+
+To run the Skin Lesion Segmentation application locally:
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/salonipandagale/Skin-Lesion-Segmentation-UNet.git
+cd Skin-Lesion-Segmentation-UNet
+```
+
+### 2. Install the required dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
+### 3. Run streamlit
+```bash
+streamlit run app.py
 
----
-
+```
 # Running the Project
 
 Execute the notebooks in the following order:
