@@ -451,131 +451,90 @@ No performance claims are made for the incomplete fifth epoch.
 
 # Test Set Evaluation
 
-The saved best checkpoint was evaluated on the held-out test set containing **90 images**.
+The saved best U-Net checkpoint was evaluated on a **held-out test set of 90 images** that were not used during model training or validation.
 
-The model generated a probability map for every pixel. Predictions were converted into binary masks using a threshold of `0.5`.
+For each test image, the model generated a pixel-wise probability map. The probability map was converted into a binary segmentation mask using a threshold of `0.5`.
 
-```python
-Y_pred = (Y_pred_prob >= 0.5).astype(np.float32)
-```
+### Quantitative Results
 
-## Quantitative Results
+| Metric               |      Score | Percentage |
+| -------------------- | ---------: | ---------: |
+| **Dice Coefficient** | **0.7875** | **78.75%** |
+| **IoU / Jaccard**    | **0.6872** | **68.72%** |
+| **Precision**        | **0.8244** | **82.44%** |
+| **Recall**           | **0.7583** | **75.83%** |
+| **Pixel Accuracy**   | **0.8909** | **89.09%** |
 
-| Metric | Score |
-|---|---:|
-| **Dice Coefficient** | **0.7875** |
-| **IoU / Jaccard** | **0.6872** |
-| **Precision** | **0.8244** |
-| **Recall** | **0.7583** |
-| **Pixel Accuracy** | **0.8909** |
+### Metric Interpretation
 
-### Percentage Representation
+* **Dice Coefficient — 0.7875:** Measures the overlap between the predicted lesion region and the ground-truth lesion region.
+* **IoU — 0.6872:** Measures the intersection between predicted and ground-truth regions relative to their union.
+* **Precision — 0.8244:** Measures how many pixels predicted as lesion actually belong to the lesion region.
+* **Recall — 0.7583:** Measures how many of the actual lesion pixels were successfully detected.
+* **Pixel Accuracy — 0.8909:** Measures the percentage of correctly classified pixels across the image.
 
-| Metric | Score |
-|---|---:|
-| Dice | **78.75%** |
-| IoU | **68.72%** |
-| Precision | **82.44%** |
-| Recall | **75.83%** |
-| Pixel Accuracy | **89.09%** |
+Dice and IoU are treated as the primary segmentation metrics because pixel accuracy can be influenced strongly by the large background region.
 
----
+### Validation vs Test Performance
 
-## Metric Interpretation
+The best completed validation Dice score was **0.7641**. The final held-out test evaluation achieved a Dice score of **0.7875**.
 
-### Dice - 0.7875
-
-Measures the overlap between predicted and ground-truth lesion regions and serves as a primary segmentation metric.
-
-### IoU - 0.6872
-
-Measures the intersection between predicted and ground-truth regions relative to their union.
-
-### Precision - 0.8244
-
-Indicates the proportion of pixels predicted as lesion that actually belong to the lesion region.
-
-### Recall - 0.7583
-
-Measures the proportion of actual lesion pixels successfully detected by the model.
-
-### Pixel Accuracy - 0.8909
-
-Measures the percentage of correctly classified pixels.
-
-Pixel accuracy is not treated as the primary segmentation metric because background pixels can dominate the image. Dice and IoU provide more informative measures of segmentation overlap.
+The validation score was used during model development and checkpoint selection, while the test set was reserved for final evaluation.
 
 ---
 
-# Qualitative Evaluation
+# Visual Results
 
-Predictions were visualized using four views:
+The model predictions were evaluated qualitatively by comparing the original dermoscopic image, ground-truth lesion mask, predicted mask, and prediction overlay.
 
-```text
-Original Image
-       |
-       v
-Ground Truth Mask
-       |
-       v
-Predicted Mask
-       |
-       v
-Prediction Overlay
-```
+### Sample Predictions
 
-Qualitative evaluation was used to assess:
+Representative test-set predictions are shown below.
 
-- Lesion localization
-- Boundary alignment
-- False-positive regions
-- Missed lesion regions
-- Overall segmentation quality
+| Sample 1                                              | Sample 2                                              |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| ![Sample 1](results/sample_predictions/sample_01.png) | ![Sample 2](results/sample_predictions/sample_02.png) |
 
-The model successfully captured the approximate lesion region in many test images, particularly when lesions had relatively clear contrast and well-defined boundaries.
+| Sample 3                                              | Sample 4                                              |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| ![Sample 3](results/sample_predictions/sample_03.png) | ![Sample 4](results/sample_predictions/sample_04.png) |
 
----
+| Sample 5                                              |
+| ----------------------------------------------------- |
+| ![Sample 5](results/sample_predictions/sample_05.png) |
 
-# Best-Case Analysis
+Each visualization contains:
 
-The highest-performing test examples achieved Dice scores of approximately:
+**Original Image → Ground Truth → Predicted Mask → Prediction Overlay**
 
-```text
-0.9731
-0.9768
-```
+### Best-Performing Predictions
 
-These examples showed strong spatial agreement between the predicted segmentation and the ground-truth mask.
+The highest-performing test cases demonstrate strong spatial agreement between the predicted segmentation and the ground-truth lesion boundaries.
 
-The predicted masks closely followed the overall lesion shape in these cases.
+| Best Case 1                                                | Best Case 2                                                |
+| ---------------------------------------------------------- | ---------------------------------------------------------- |
+| ![Best Prediction 1](results/best_predictions/best_01.png) | ![Best Prediction 2](results/best_predictions/best_02.png) |
 
----
+| Best Case 3                                                |
+| ---------------------------------------------------------- |
+| ![Best Prediction 3](results/best_predictions/best_03.png) |
 
-# Failure-Case Analysis
+### Challenging / Worst-Performing Predictions
 
-The model also showed difficulty on challenging examples.
+The lowest-performing cases were examined to understand where the model struggled. These examples help identify failure modes such as small lesions, weak contrast, irregular boundaries, artifacts, false-positive regions, and missed lesion pixels.
 
-Some low-performing test cases achieved Dice scores such as:
+| Challenging Case 1                                            | Challenging Case 2                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| ![Worst Prediction 1](results/worst_predictions/worst_01.png) | ![Worst Prediction 2](results/worst_predictions/worst_02.png) |
 
-```text
-0.0000
-0.0662
-```
+| Challenging Case 3                                            |
+| ------------------------------------------------------------- |
+| ![Worst Prediction 3](results/worst_predictions/worst_03.png) |
 
-Visual inspection of these examples showed challenges associated with:
+These qualitative examples complement the numerical evaluation by showing how segmentation quality varies across different image characteristics.
 
-- Very small lesions
-- Low contrast between lesion and surrounding skin
-- Irregular lesion boundaries
-- Hair and image artifacts
-- Weak visual separation between lesion and background
-- False-positive regions
-- Missed lesion pixels
-
-These failure cases provide useful insight into where the current model needs improvement.
 
 ---
-
 # Limitations
 
 ### 1. Computational Cost
