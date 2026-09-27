@@ -591,9 +591,9 @@ Potential improvements include:
 # Project Structure
 
 ```text
-Skin-Lesion-Segmentation/
+Skin-Lesion-Segmentation-UNet/
 │
-├── data/     --(not uploaded in repository)
+├── data/                         # Dataset files (not uploaded)
 │   ├── images/
 │   ├── masks/
 │   ├── X_train.npy
@@ -605,17 +605,46 @@ Skin-Lesion-Segmentation/
 │
 ├── notebooks/
 │   ├── 01_data_exploration_preprocessing.ipynb
-│   ├── 02_unet_training.ipynb
+│   ├── 02_unet_training_colab.ipynb
 │   └── 03_evaluation_visualization.ipynb
 │
 ├── models/
 │   └── unet_skin_lesion_best.keras
 │
-├── src/
+├── results/
+│   ├── evaluation_metrics.json
+│   ├── evaluation_metrics.txt
+│   │
+│   ├── best_predictions/
+│   │   ├── best_01.png
+│   │   ├── best_02.png
+│   │   └── best_03.png
+│   │
+│   ├── worst_predictions/
+│   │   ├── worst_01.png
+│   │   ├── worst_02.png
+│   │   └── worst_03.png
+│   │
+│   └── sample_predictions/
+│       ├── sample_01.png
+│       ├── sample_02.png
+│       ├── sample_03.png
+│       ├── sample_04.png
+│       └── sample_05.png
 │
+├── src/
+│   ├── 02_unet_training_colab.py
+│   └── 03_evaluation_visualization.py
+│
+├── app.py
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+├── .gitignore
+└── .python-version
 ```
+
+The `results/` directory contains the final test-set metrics and qualitative prediction visualizations used for model evaluation.
+
 
 Large dataset files, preprocessed NumPy arrays, and model checkpoints may be excluded from the GitHub repository because of their size.
 
