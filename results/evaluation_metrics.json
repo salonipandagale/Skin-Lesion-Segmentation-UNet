@@ -1,0 +1,14 @@
+{
+    "dataset": "ISIC 2016",
+    "test_samples": 90,
+    "image_size": "256x256",
+    "prediction_threshold": 0.5,
+    "metrics": {
+        "dice": 0.7875,
+        "iou": 0.6872,
+        "precision": 0.8244,
+        "recall": 0.7583,
+        "pixel_accuracy": 0.8909
+    },
+    "best_validation_dice": 0.7641
+}
