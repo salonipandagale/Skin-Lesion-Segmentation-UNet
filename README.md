@@ -455,7 +455,7 @@ The saved best U-Net checkpoint was evaluated on a **held-out test set of 90 ima
 
 For each test image, the model generated a pixel-wise probability map. The probability map was converted into a binary segmentation mask using a threshold of `0.5`.
 
-### Quantitative Results
+## Quantitative Results
 
 | Metric               |      Score | Percentage |
 | -------------------- | ---------: | ---------: |
@@ -483,7 +483,7 @@ The validation score was used during model development and checkpoint selection,
 
 ---
 
-# Visual Results
+## Visual Results
 
 The model predictions were evaluated qualitatively by comparing the original dermoscopic image, ground-truth lesion mask, predicted mask, and prediction overlay.
 
