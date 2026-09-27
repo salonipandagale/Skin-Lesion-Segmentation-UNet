@@ -509,6 +509,11 @@ Each visualization contains:
 
 ### Best-Performing Predictions
 
+The best observed Dice scores included:
+- 0.9768
+- 0.9731
+- 0.9850
+
 The highest-performing test cases demonstrate strong spatial agreement between the predicted segmentation and the ground-truth lesion boundaries.
 
 | Best Case 1                                                | Best Case 2                                                |
@@ -522,6 +527,11 @@ The highest-performing test cases demonstrate strong spatial agreement between t
 ### Challenging / Worst-Performing Predictions
 
 The lowest-performing cases were examined to understand where the model struggled. These examples help identify failure modes such as small lesions, weak contrast, irregular boundaries, artifacts, false-positive regions, and missed lesion pixels.
+
+Examples included Dice scores of:
+- 0.0000
+- 0.0662
+- 0.2072
 
 | Challenging Case 1                                            | Challenging Case 2                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
