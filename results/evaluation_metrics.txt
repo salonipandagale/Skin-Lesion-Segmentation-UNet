@@ -1,0 +1,33 @@
+Skin Lesion Segmentation - Evaluation Results
+================================================
+
+Dataset: ISIC 2016
+Test Samples: 90
+Image Size: 256 x 256
+Prediction Threshold: 0.5
+
+Test Metrics
+------------
+Dice Score       : 0.7875
+IoU              : 0.6872
+Precision        : 0.8244
+Recall           : 0.7583
+Pixel Accuracy   : 0.8909
+
+Validation Performance
+----------------------
+Best Validation Dice : 0.7641
+
+Prediction Analysis
+-------------------
+The model predictions were further analyzed using qualitative
+visualization of sample, best-performing, and worst-performing
+test cases.
+
+The difficult cases included:
+- Small lesion regions
+- Low-contrast lesions
+- Irregular lesion boundaries
+- Hair and other image artifacts
+- False-positive regions
+- Missed lesion pixels
